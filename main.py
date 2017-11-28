@@ -10,14 +10,48 @@ import pickle as pkl
 from scipy.signal import correlate
 from scipy.optimize import curve_fit
 
-# Speed autocorrelation
-def sacf(fils):
+# Speed autocorrelation (is almost same as step length hist)
+def sacf(n,fils):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
+    step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
+    step_size = (step**2).sum(axis=1)**.5
 
-    
+    step_detrend = step_size - step_size.mean(axis=1)[:,np.newaxis]
+
+    # Following method from AR
+    def acorr_log(x):
+
+        lags = [int(xx) for xx in np.logspace(0,3,100)]
+
+        variance = x.var()
+        corr = []
+        for lag in lags:
+            corr.append(np.sum(x[lag:]*x[:-lag])/variance)
+        
+        return lags, corr
+
+    # Following method is from GS.
+    def acorr(x):
+        n = len(x)
+        r = np.correlate(x,x,mode='full')[-n:]
+        variance = x.var()
+        return r/(variance*np.arange(n,0,-1))
+
+    #speed_acorr = np.asarray([acorr(step_detrend[j]) for j in range(step.shape[0])]) 
+
+    #mean_speed_acorr = speed_acorr.mean(axis=0)
+    #plt.loglog(mean_speed_acorr)
+
+    speed_acorr = np.asarray([acorr_log(step_detrend[j]) for j in range(step.shape[0])]) 
+
+    mean_speed_acorr = speed_acorr.mean(axis=0)
+    plt.loglog(mean_speed_acorr)
+
+    plt.xlim([1,5000])
 
 def vacf(fils):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
+
 
 # Just for plotting trajectories of MT COM
 def vis(fils):
@@ -123,7 +157,7 @@ def main():
     # phase space from the appropriate folder
     fname="out_fil.h5"
     base ="/work/jiff26/jiff2611/PROJECTS/effective/Jobs/170731-Active_Diffusion/rotation_data/aspect_ratio_10.0/"
-    density=[0.4];	pa=[0.0,1.0];	pp=[0.0];
+    density=[0.4];	pa=[1.0];	pp=[0.0];
  
     folders=[] 
     for di in density:
@@ -131,13 +165,13 @@ def main():
             for ppi in pp:
                 folders.append(base+'density_'+str(di)+'/pa_'+str(pai)+'/pp_'+str(ppi)+'/')
 
-    axes = (ax)
     # all functions here, iterate parameter set by set
     for folder in folders:
         fils, sim = read_data(folder, fname)
         #vis(fils) 		# visualise traj
-        for ax,n in zip(axes,[1,10,100,1000]):
-            two_time_corr(ax,n,fils)	# step length histogram (PD)
+        for n in [1]:
+            #two_time_corr(ax,n,fils)	# step length histogram (PD)
+            sacf(n,fils)
     plt.show() 
     #plt.savefig('step_length_loglog_semilog2.pdf')
     return
