@@ -18,18 +18,6 @@ def sacf(n,fils):
 
     step_detrend = step_size - step_size.mean(axis=1)[:,np.newaxis]
 
-    # Following method from AR
-    def acorr_log(x):
-
-        lags = [int(xx) for xx in np.logspace(0,3,100)]
-
-        variance = x.var()
-        corr = []
-        for lag in lags:
-            corr.append(np.sum(x[lag:]*x[:-lag])/variance)
-        
-        return lags, corr
-
     # Following method is from GS.
     def acorr(x):
         n = len(x)
@@ -37,20 +25,39 @@ def sacf(n,fils):
         variance = x.var()
         return r/(variance*np.arange(n,0,-1))
 
-    #speed_acorr = np.asarray([acorr(step_detrend[j]) for j in range(step.shape[0])]) 
-
-    #mean_speed_acorr = speed_acorr.mean(axis=0)
-    #plt.loglog(mean_speed_acorr)
-
-    speed_acorr = np.asarray([acorr_log(step_detrend[j]) for j in range(step.shape[0])]) 
+    speed_acorr = np.asarray([acorr(step_detrend[j]) for j in range(step.shape[0])]) 
 
     mean_speed_acorr = speed_acorr.mean(axis=0)
     plt.loglog(mean_speed_acorr)
 
-    plt.xlim([1,5000])
+    # Fitting
+    powerlaw    = lambda x, amp, index: amp*(x**index)
+    x = range(len(mean_speed_acorr))
+    popt, pcov   = curve_fit(powerlaw, x[10:100], mean_speed_acorr[10:100])
 
-def vacf(fils):
+    plt.loglog(np.abs(powerlaw(x, *popt)))
+    plt.xlim([1,5000])
+    plt.grid()
+
+    print(*popt)
+    '''
+    # Following method from AR
+    lags = [int(xx) for xx in np.logspace(0,3,100)]
+    variance = step_detrend.var(axis=1)
+    corr = []
+    for lag in lags:
+        sums = np.sum(step_detrend[:,lag:]*step_detrend[:,:-lag],axis=1)
+        corr.append(sums/variance)		# VERY UNCLEAR ABOUT THE NORMALISATION HERE 
+     
+    mean_speed_acorr = np.array(corr).mean(axis=1)
+    plt.loglog(lags, mean_speed_acorr)
+    plt.xlim([1,5000])
+    '''
+
+def vacf(n,fils):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
+
+
 
 
 # Just for plotting trajectories of MT COM
@@ -150,7 +157,8 @@ def two_time_corr(ax,n, fils):
     y = step_size[:10,1:].flatten()
     ax.scatter(x,y,s=1) 
 
-f, (ax1) = plt.subplots(1,1)
+f, (ax1,ax2,ax3) = plt.subplots(1,3)
+axes = (ax1,ax2,ax3)
 def main():
 
     # Loading any data in the 
@@ -169,10 +177,11 @@ def main():
     for folder in folders:
         fils, sim = read_data(folder, fname)
         #vis(fils) 		# visualise traj
-        for n in [1]:
-            #two_time_corr(ax,n,fils)	# step length histogram (PD)
-            sacf(n,fils)
+        for ax,n in zip(axes,[1,10,100]):
+            two_time_corr(ax,n,fils)	# step length histogram (PD)
+            #sacf(n,fils)
     plt.show() 
+    #plt.savefig('timesteps1_10_100.pdf')
     #plt.savefig('step_length_loglog_semilog2.pdf')
     return
     

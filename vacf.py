@@ -14,7 +14,7 @@ from scipy.optimize import curve_fit
 
 def vacf(fname):
     base ="/work/jiff26/jiff2611/PROJECTS/effective/Jobs/170731-Active_Diffusion/rotation_data/aspect_ratio_10.0/"
-    density=[0.4];	pa=[0.0, 0.4, 0.8, 1.0];	pp=[0.0];
+    density=[0.4];	pa=[1.0];	pp=[0.0];
  
     folders=[] 
     for di in density:
@@ -30,7 +30,7 @@ def vacf(fname):
     for fi, folder in enumerate(folders):
         cells, sim = read_data(folder, fname)
 
-        lags_v = [int(l) for l in np.logspace(0,np.log10(len(cells.xi)),50)]
+        lags_v = [int(l) for l in np.logspace(0,np.log10(len(cells.xi)),100)]
 
         plotter = np.zeros((len(lags_v),2))
 
@@ -47,12 +47,25 @@ def vacf(fname):
             else:
                 plotter[i,1] = 0 
 
-        if fi==0:
-            plotter0 = plotter 
+        x,y = lags_v, plotter[:,1]
+
+        plt.loglog(x,y)
+
+        fitfunc = lambda x, a1, i1, s1, a2, i2, s2: a1*(x**i1) + a2*(i2**-x)
+
+        x = np.array(x)
+        popt, pcov = curve_fit(fitfunc, x, y)
+
+        print(*popt)
+        plt.loglog(x, fitfunc(x, *popt),c='k')
+        
+
+        #if fi==0:
+            #plotter0 = plotter 
             #plt.semilogx(plotter0[:,0], plotter0[:,1])
-        else:
-            plotter1 = plotter - plotter0
-            plt.semilogy(lags_v, plotter1[:,1])
+        #else:
+        #    plotter1 = plotter - plotter0
+        #    plt.loglog(lags_v, plotter1[:,1])
 
 def disp(fname):
     base ="/work/jiff26/jiff2611/PROJECTS/effective/Jobs/170731-Active_Diffusion/rotation_data/aspect_ratio_10.0/"
