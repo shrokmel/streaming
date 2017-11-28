@@ -32,7 +32,18 @@ def step_length_hist(fils):
     # p, bc and be are probability density, bin count and bin edges respectively
     p, be = np.histogram(np.abs(step.flatten()), bins=100, normed=True)	
     bc = (be[:-1]+be[1:])/2.
+
+    powerlaw = lambda x, amp, index: amp*(x**index)
+
+    long_time = 30
+    popt, pcov = curve_fit(powerlaw, bc[long_time:], p[long_time:])
+
     plt.loglog(bc, p)
+    plt.loglog(bc[20:], powerlaw(bc[20:], *popt), c='k')
+
+    plt.ylabel('prob. density')
+    plt.xlabel('step length')
+    #plt.xlim([0.08,1.5])
 
 def main():
 
@@ -53,8 +64,9 @@ def main():
         fils, sim = read_data(folder, fname)
         #vis(fils) 		# visualise traj
         step_length_hist(fils)	# step length histogram (PD)
-    
-    plt.show()
+   
+    #plt.show() 
+    plt.savefig('power_law.pdf')
     return
     
 if __name__ == '__main__':
