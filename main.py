@@ -22,16 +22,44 @@ def vis(fils):
         traj_shift = traj - traj.mean(axis=0)
         ax.plot(traj_shift[:,0], traj_shift[:,1])	# subtract traj mean for cleanliness
 
-def step_length_hist(fils):
+# following normalisation doesn't really work
+def step_length_hist_normed(n,fils):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
-    f, (ax1, ax2) = plt.subplots(1,2)
     # data = [particle ID, (x,y), time] 
-
-    step = np.diff(data, axis=2)		# step size dt = 1 (ARBITRARY)
+    step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
+    drift= step.mean(axis=0)
+    step = step - drift
+    step_size = (step**2).sum(axis=1)**.5
 
     # p, bc and be are probability density, bin count and bin edges respectively
-    p, be = np.histogram(np.abs(step.flatten()), bins=100, normed=True)	
+    p, be = np.histogram(distribution, bins=100, normed=True)	
+    bc = (be[:-1]+be[1:])/2.
+
+    ax1.loglog(bc,p)
+
+    # normalised version
+    step_size_mean = ((step**2).sum(axis=1).mean())**.5		# normalisation
+    distribution = np.abs(step_size.flatten())/step_size_mean
+
+    # p, bc and be are probability density, bin count and bin edges respectively
+    p, be = np.histogram(distribution, bins=100, normed=True)	
+    bc = (be[:-1]+be[1:])/2.
+    ax2.loglog(bc,p)
+
+def step_length_hist(n, fils):
+    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
+
+    # data = [particle ID, (x,y), time] 
+    step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
+    drift= step.mean(axis=0)
+    step = step - drift
+    step_size = (step**2).sum(axis=1)**.5
+
+    distribution = np.abs(step_size.flatten())
+
+    # p, bc and be are probability density, bin count and bin edges respectively
+    p, be = np.histogram(distribution, bins=100, normed=True)	
     bc = (be[:-1]+be[1:])/2.
 
     powerlaw    = lambda x, amp, index: amp*(x**index)
@@ -40,6 +68,16 @@ def step_length_hist(fils):
     long_time = 30
     popt, pcov   = curve_fit(powerlaw,    bc[long_time:], p[long_time:])
     popt2, pcov2 = curve_fit(exponential, bc[20:], p[20:])
+
+    distribution = np.abs(step_size.flatten())/step_size_mean
+
+    # p, bc and be are probability density, bin count and bin edges respectively
+    p, be = np.histogram(distribution, bins=100, normed=True)	
+    bc = (be[:-1]+be[1:])/2.
+
+    step_size = (step2**2).sum(axis=1)**.5
+    p, be = np.histogram(np.abs(step_size.flatten()), bins=100, normed=True)	
+    bc = (be[:-1]+be[1:])/2.
 
     ax1.loglog(bc, p)
     ax1.loglog(bc[20:], powerlaw(bc[20:], *popt), c='k')
@@ -50,10 +88,14 @@ def step_length_hist(fils):
     ax1.set_ylabel('prob. density')
     ax1.set_xlabel('step length')
 
-    #ax2.set_ylabel('prob. density')
+    ax2.set_ylabel('prob. density')
     ax2.set_xlabel('step length')
     #plt.xlim([0.08,1.5])
 
+def two_time_corr(n, fils):
+
+
+f, (ax1, ax2) = plt.subplots(1,2)
 def main():
 
     # Loading any data in the 
@@ -72,10 +114,11 @@ def main():
     for folder in folders:
         fils, sim = read_data(folder, fname)
         #vis(fils) 		# visualise traj
-        step_length_hist(fils)	# step length histogram (PD)
-   
-    #plt.show() 
-    plt.savefig('step_length_loglog_semilog.pdf')
+        for n in [1,2,5,50,100]:
+            step_length_hist(n,fils)	# step length histogram (PD)
+
+    plt.show() 
+    #plt.savefig('step_length_loglog_semilog2.pdf')
     return
     
 if __name__ == '__main__':
