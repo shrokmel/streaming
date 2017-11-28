@@ -1,5 +1,5 @@
 
-""" Main script for analysis calculations """ 
+""" Main script for Streaming (Levy Flight) type calculations """ 
 
 import matplotlib as mpl
 from read_write import read_data
@@ -9,8 +9,36 @@ import pickle as pkl
 
 from scipy.optimize import curve_fit
 
-# Just for plotting
-def vis(fname):
+# Just for plotting trajectories of MT COM
+def vis(fils):
+
+    rodids = range(4)				# just plot some rods
+
+    f, ax = plt.subplots(1,1)
+    ax.set_aspect('equal')
+
+    for rodid in rodids:
+        traj = cells.xi[5000:,:,rodid]		# just take latter half of sim
+        traj_shift = traj - traj.mean(axis=0)
+        ax.plot(traj_shift[:,0], traj_shift[:,1])	# subtract traj mean for cleanliness
+
+def step_length_hist(fils):
+    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
+
+    # data = [particle ID, (x,y), time] 
+
+    step = np.diff(data, axis=2)		# step size dt = 1 (ARBITRARY)
+
+    # p, bc and be are probability density, bin count and bin edges respectively
+    p, be = np.histogram(np.abs(step.flatten()), bins=100, normed=True)	
+    bc = (be[:-1]+be[1:])/2.
+    plt.loglog(bc, p)
+
+def main():
+
+    # Loading any data in the 
+    # phase space from the appropriate folder
+    fname="out_fil.h5"
     base ="/work/jiff26/jiff2611/PROJECTS/effective/Jobs/170731-Active_Diffusion/rotation_data/aspect_ratio_10.0/"
     density=[0.4];	pa=[1.0];	pp=[0.0];
  
@@ -20,31 +48,13 @@ def vis(fname):
             for ppi in pp:
                 folders.append(base+'density_'+str(di)+'/pa_'+str(pai)+'/pp_'+str(ppi)+'/')
 
+    # all functions here, iterate parameter set by set
     for folder in folders:
-        cells, sim = read_data(folder, fname)
-
-        rodids = range(4)
-
-        f, ax1 = plt.subplots(1,1)
-
-        for rodid in rodids:
-            traj = cells.xi[5000:,:,rodid]
-
-            #disp = traj - traj[0]
-
-            #disp2 = np.sqrt(np.square(disp[:,0]) + np.square(disp[:,1]))
-
-            ax1.plot(traj[:,0] - traj[:,0].mean(), traj[:,1] - traj[:,1].mean())
-            ax1.set_aspect('equal')
-            #ax2.plot(traj[:,0],traj[:,1])
-            #ax2.set_aspect('equal')
-
-def main():
-
-    fname="out_fil.h5"
-    vis(fname) 
-    plt.show()
+        fils, sim = read_data(folder, fname)
+        #vis(fils) 		# visualise traj
+        step_length_hist(fils)	# step length histogram (PD)
     
+    plt.show()
     return
     
 if __name__ == '__main__':
