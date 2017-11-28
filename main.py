@@ -7,7 +7,17 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pickle as pkl
 
+from scipy.signal import correlate
 from scipy.optimize import curve_fit
+
+# Speed autocorrelation
+def sacf(fils):
+    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
+
+    
+
+def vacf(fils):
+    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
 # Just for plotting trajectories of MT COM
 def vis(fils):
@@ -92,17 +102,28 @@ def step_length_hist(n, fils):
     ax2.set_xlabel('step length')
     #plt.xlim([0.08,1.5])
 
-def two_time_corr(n, fils):
+# This is a waste of time as Guglielmo rightly pointed out
+def two_time_corr(ax,n, fils):
+    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
+    # data = [particle ID, (x,y), time] 
+    step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
+    drift= step.mean(axis=0)
+    step = step - drift
+    step_size = (step**2).sum(axis=1)**.5
 
-f, (ax1, ax2) = plt.subplots(1,2)
+    x = step_size[:10,:-1].flatten()		# correlation between two groups of time steps
+    y = step_size[:10,1:].flatten()
+    ax.scatter(x,y,s=1) 
+
+f, (ax1) = plt.subplots(1,1)
 def main():
 
     # Loading any data in the 
     # phase space from the appropriate folder
     fname="out_fil.h5"
     base ="/work/jiff26/jiff2611/PROJECTS/effective/Jobs/170731-Active_Diffusion/rotation_data/aspect_ratio_10.0/"
-    density=[0.4];	pa=[1.0];	pp=[0.0];
+    density=[0.4];	pa=[0.0,1.0];	pp=[0.0];
  
     folders=[] 
     for di in density:
@@ -110,13 +131,13 @@ def main():
             for ppi in pp:
                 folders.append(base+'density_'+str(di)+'/pa_'+str(pai)+'/pp_'+str(ppi)+'/')
 
+    axes = (ax)
     # all functions here, iterate parameter set by set
     for folder in folders:
         fils, sim = read_data(folder, fname)
         #vis(fils) 		# visualise traj
-        for n in [1,2,5,50,100]:
-            step_length_hist(n,fils)	# step length histogram (PD)
-
+        for ax,n in zip(axes,[1,10,100,1000]):
+            two_time_corr(ax,n,fils)	# step length histogram (PD)
     plt.show() 
     #plt.savefig('step_length_loglog_semilog2.pdf')
     return
