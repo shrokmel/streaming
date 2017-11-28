@@ -25,6 +25,7 @@ def vis(fils):
 def step_length_hist(fils):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
+    f, (ax1, ax2) = plt.subplots(1,2)
     # data = [particle ID, (x,y), time] 
 
     step = np.diff(data, axis=2)		# step size dt = 1 (ARBITRARY)
@@ -33,16 +34,24 @@ def step_length_hist(fils):
     p, be = np.histogram(np.abs(step.flatten()), bins=100, normed=True)	
     bc = (be[:-1]+be[1:])/2.
 
-    powerlaw = lambda x, amp, index: amp*(x**index)
+    powerlaw    = lambda x, amp, index: amp*(x**index)
+    exponential = lambda x, amp, index: amp*(index**x)
 
     long_time = 30
-    popt, pcov = curve_fit(powerlaw, bc[long_time:], p[long_time:])
+    popt, pcov   = curve_fit(powerlaw,    bc[long_time:], p[long_time:])
+    popt2, pcov2 = curve_fit(exponential, bc[20:], p[20:])
 
-    plt.loglog(bc, p)
-    plt.loglog(bc[20:], powerlaw(bc[20:], *popt), c='k')
+    ax1.loglog(bc, p)
+    ax1.loglog(bc[20:], powerlaw(bc[20:], *popt), c='k')
 
-    plt.ylabel('prob. density')
-    plt.xlabel('step length')
+    ax2.semilogy(bc, p)
+    ax2.semilogy(bc[10:], exponential(bc[10:], *popt2), c='k')
+
+    ax1.set_ylabel('prob. density')
+    ax1.set_xlabel('step length')
+
+    #ax2.set_ylabel('prob. density')
+    ax2.set_xlabel('step length')
     #plt.xlim([0.08,1.5])
 
 def main():
@@ -66,7 +75,7 @@ def main():
         step_length_hist(fils)	# step length histogram (PD)
    
     #plt.show() 
-    plt.savefig('power_law.pdf')
+    plt.savefig('step_length_loglog_semilog.pdf')
     return
     
 if __name__ == '__main__':
