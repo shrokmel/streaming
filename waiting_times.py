@@ -67,7 +67,7 @@ def traj(fils,n=1):
 
     return
 
-def traj2(fils,n=1,sigma=50):
+def traj_distance(fils,n=1,sigma=50):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
     # data = [particle ID, (x,y), time] 
@@ -93,6 +93,119 @@ def traj2(fils,n=1,sigma=50):
     for j in range(1250):     
         mask = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
         true_to_false = np.diff(mask)
+
+        # DISTANCE covered
+        d = data[j,:,1:-2]		# prune to accomodate true_to_false dimensions
+        stream_enter = d[:,true_to_false== 1]
+        stream_exit  = d[:,true_to_false==-1]
+
+        # if filament starts diffusive & ends diffusive
+        if mask[0] == 0 and mask[-1] == 0:
+            # streaming
+            dist = stream_exit - stream_enter
+            dist = (dist**2).sum(axis=0)**.5
+
+            for ll in dist:
+                running.append(ll)
+
+            # diffusing
+            dist = stream_enter[:,1:] - stream_exit[:,:-1]
+            dist = (dist**2).sum(axis=0)**.5
+
+            for ll in dist:
+                diffusing.append(ll)
+
+        # if filament starts streaming & ends diffusive
+        elif mask[0] == 1 and mask[-1] == 0:
+            # streaming
+            dist = stream_exit[:,1:] - stream_enter
+            dist = (dist**2).sum(axis=0)**.5
+            for ll in dist:
+                running.append(ll)
+
+            # diffusing
+            dist = stream_enter - stream_exit[:,:-1]
+            dist = (dist**2).sum(axis=0)**.5
+
+            for ll in dist:
+                diffusing.append(ll)
+
+        # if filament starts streaming & ends streaming
+        elif mask[0] == 1 and mask[-1] == 1:
+            # streaming
+            dist = stream_exit[:,1:] - stream_enter[:,:-1]
+            dist = (dist**2).sum(axis=0)**.5
+            for ll in dist:
+                running.append(ll)
+            # diffusing
+            dist = stream_enter - stream_exit
+            dist = (dist**2).sum(axis=0)**.5
+            for ll in dist:
+                diffusing.append(ll)
+        
+        # if filament starts diffusive & ends streaming
+        elif mask[0] == 0 and mask[-1] == 1:
+            # streaming
+            lags = stream_exit - stream_enter[:,:-1]
+            dist = (dist**2).sum(axis=0)**.5
+ 
+            if type(dist) is np.float64:
+                running.append(dist)
+            else:
+                print(type(dist))
+                for ll in dist:
+                    running.append(ll)
+
+            # diffusing
+            dist = stream_enter[:,1:] - stream_exit
+            dist = (dist**2).sum(axis=0)**.5
+            for ll in dist:
+                diffusing.append(ll)
+    
+    p, be = np.histogram(running, bins=100)
+    bc = (be[:-1]+be[1:])/2.
+    ax1.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+    ax1.set_xlabel('distance covered streaming')
+
+
+    p, be = np.histogram(diffusing, bins=100)
+    bc = (be[:-1]+be[1:])/2.
+
+    ax2.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+    ax2.set_xlabel('distance covered in bundle')
+    plt.legend()
+
+    
+    return
+
+def traj_time(fils,n=1,sigma=50):
+    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
+
+    # data = [particle ID, (x,y), time] 
+    step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
+    step_size = (step**2).sum(axis=1)**.5
+
+    d = step/step_size[:,np.newaxis,:]		# unit vector of velocity
+    p = (d[:,:,n:]*d[:,:,:-n]).sum(axis=1)	# vel correlation between n steps
+
+    #j = 1
+
+    threshold = 0.4
+    #mask1 = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
+    #ax1.plot(mask1)
+
+    #threshold = 0.6
+    #mask2 = (plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))>threshold).astype(float)
+    #ax2.plot(mask2)
+
+    running = []
+    diffusing = []
+
+    for j in range(1250):     
+        mask = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
+        true_to_false = np.diff(mask)
+
+        # TIME
         stream_enter = np.where(true_to_false == 1)[0]
         stream_exit  = np.where(true_to_false ==-1)[0]
 
@@ -147,12 +260,14 @@ def traj2(fils,n=1,sigma=50):
     p, be = np.histogram(running, bins=100)
     bc = (be[:-1]+be[1:])/2.
     ax1.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+    ax1.set_xlabel('time spent streaming')
 
 
     p, be = np.histogram(diffusing, bins=100)
     bc = (be[:-1]+be[1:])/2.
 
     ax2.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+    ax2.set_xlabel('time spent in bundle')
     plt.legend()
 
     #p, be = np.histogram(diffusing, bins=50)
@@ -206,8 +321,8 @@ def main():
     for folder in folders:
         fils, sim = read_data(folder, fname)
     
-        for s in [50,100,300]:
-             traj2(fils,sigma=s)        
+        for s in [50,100]:
+             traj_distance(fils,sigma=s)        
 
     plt.show()
     return
