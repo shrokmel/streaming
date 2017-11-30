@@ -92,13 +92,12 @@ def traj2(fils,n=1,sigma=50):
 
     for j in range(1250):     
         mask = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
+        true_to_false = np.diff(mask)
+        stream_enter = np.where(true_to_false == 1)[0]
+        stream_exit  = np.where(true_to_false ==-1)[0]
 
         # if filament starts diffusive & ends diffusive
         if mask[0] == 0 and mask[-1] == 0:
-            true_to_false = np.diff(mask)
-            stream_enter = np.where(true_to_false == 1)[0]
-            stream_exit  = np.where(true_to_false ==-1)[0]
-
             # streaming
             lags = stream_exit - stream_enter
             for ll in lags:
@@ -110,23 +109,40 @@ def traj2(fils,n=1,sigma=50):
                 diffusing.append(ll)
 
         # if filament starts streaming & ends diffusive
-        if mask[0] == 1 and mask[-1] == 0:
-            true_to_false = np.diff(mask)
-            stream_enter = np.where(true_to_false == 1)[0]
-            stream_exit  = np.where(true_to_false ==-1)[0]
-
+        elif mask[0] == 1 and mask[-1] == 0:
             # streaming
-            lags = stream_exit - stream_enter
+            lags = stream_exit[1:] - stream_enter
             for ll in lags:
                 running.append(ll)
 
             # diffusing
-            lags = stream_exit - stream_enter
+            lags = stream_enter - stream_exit[:-1]
             for ll in lags:
                 diffusing.append(ll)
 
+        # if filament starts streaming & ends streaming
+        elif mask[0] == 1 and mask[-1] == 1:
+            # streaming
+            lags = stream_exit[1:] - stream_enter[:-1]
+            for ll in lags:
+                running.append(ll)
 
+            # diffusing
+            lags = stream_enter - stream_exit
+            for ll in lags:
+                diffusing.append(ll)
+        
+        # if filament starts diffusive & ends streaming
+        elif mask[0] == 0 and mask[-1] == 1:
+            # streaming
+            lags = stream_exit - stream_enter[:-1]
+            for ll in lags:
+                running.append(ll)
 
+            # diffusing
+            lags = stream_enter[1:] - stream_exit
+            for ll in lags:
+                diffusing.append(ll)
     
     p, be = np.histogram(running, bins=100)
     bc = (be[:-1]+be[1:])/2.
@@ -190,7 +206,7 @@ def main():
     for folder in folders:
         fils, sim = read_data(folder, fname)
     
-        for s in [50, 100, 200]:
+        for s in [50,100,300]:
              traj2(fils,sigma=s)        
 
     plt.show()
