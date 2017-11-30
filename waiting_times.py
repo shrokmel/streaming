@@ -7,174 +7,173 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pickle as pkl
 
+from scipy.ndimage.filters import median_filter
+from scipy.ndimage.filters import gaussian_filter1d
 from scipy.signal import correlate
 from scipy.optimize import curve_fit
 
-# Speed autocorrelation (is almost same as step length hist)
-def sacf(n,fils):
-    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
-    step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
-    step_size = (step**2).sum(axis=1)**.5
+def lag_times_hist(sigma, threshold, p):
+    running = []
+    diffusing = []
+    for j in range(50):
+        mask = (plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))>threshold).astype(float)
+        # and now we compute the lag times .. guess how?!
+        true_to_false = np.diff(mask)
+        where_is_it = np.where(true_to_false)
+        lags = np.diff(where_is_it)[0]
+        other = lambda x: {1:0,0:1}[x]
+        assigned_lags = {mask[0]:lags[::2],other(mask[0]):lags[1::2]}
+        running.extend(assigned_lags[1])
+        diffusing.extend(assigned_lags[0])
+    count,edges = np.histogram(running,bins=np.arange(0,5000,100));
+    edges = (edges[1:]+edges[:-1])/2
+    plt.semilogy(edges,count,label=str(sigma)+' '+str(threshold))
+    plt.xlabel('lag times of running motion')
+    plt.legend(loc='best')
+    plt.grid(1)
 
-    step_detrend = step_size - step_size.mean(axis=1)[:,np.newaxis]
+def traj(fils,n=1):
 
-    # Following method is from GS.
-    def acorr(x):
-        n = len(x)
-        r = np.correlate(x,x,mode='full')[-n:]
-        variance = x.var()
-        return r/(variance*np.arange(n,0,-1))
+    sigma = 50
+    threshold = 0.5
 
-    speed_acorr = np.asarray([acorr(step_detrend[j]) for j in range(step.shape[0])]) 
-
-    mean_speed_acorr = speed_acorr.mean(axis=0)
-    plt.loglog(mean_speed_acorr)
-
-    # Fitting
-    powerlaw    = lambda x, amp, index: amp*(x**index)
-    x = range(len(mean_speed_acorr))
-    popt, pcov   = curve_fit(powerlaw, x[10:100], mean_speed_acorr[10:100])
-
-    plt.loglog(np.abs(powerlaw(x, *popt)))
-    plt.xlim([1,5000])
-    plt.grid()
-
-    print(*popt)
-    '''
-    # Following method from AR
-    lags = [int(xx) for xx in np.logspace(0,3,100)]
-    variance = step_detrend.var(axis=1)
-    corr = []
-    for lag in lags:
-        sums = np.sum(step_detrend[:,lag:]*step_detrend[:,:-lag],axis=1)
-        corr.append(sums/variance)		# VERY UNCLEAR ABOUT THE NORMALISATION HERE 
-     
-    mean_speed_acorr = np.array(corr).mean(axis=1)
-    plt.loglog(lags, mean_speed_acorr)
-    plt.xlim([1,5000])
-    '''
-
-def vacf(n,fils):
-    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
-
-
-
-
-# Just for plotting trajectories of MT COM
-def vis(fils):
-
-    rodids = range(4)				# just plot some rods
-
-    f, ax = plt.subplots(1,1)
-    ax.set_aspect('equal')
-
-    for rodid in rodids:
-        traj = cells.xi[5000:,:,rodid]		# just take latter half of sim
-        traj_shift = traj - traj.mean(axis=0)
-        ax.plot(traj_shift[:,0], traj_shift[:,1])	# subtract traj mean for cleanliness
-
-# following normalisation doesn't really work
-def step_length_hist_normed(n,fils):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
     # data = [particle ID, (x,y), time] 
     step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
-    drift= step.mean(axis=0)
-    step = step - drift
     step_size = (step**2).sum(axis=1)**.5
 
-    # p, bc and be are probability density, bin count and bin edges respectively
-    p, be = np.histogram(distribution, bins=100, normed=True)	
-    bc = (be[:-1]+be[1:])/2.
+    # coloured wrt velocity
+    #for j in range(3):
+    #    ax1.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.jet(plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))))
 
-    ax1.loglog(bc,p)
+    d = step/step_size[:,np.newaxis,:]		# unit vector of velocity
+    p = (d[:,:,n:]*d[:,:,:-n]).sum(axis=1)	# vel correlation between n steps
 
-    # normalised version
-    step_size_mean = ((step**2).sum(axis=1).mean())**.5		# normalisation
-    distribution = np.abs(step_size.flatten())/step_size_mean
+    # coloured wrt orientation corr.
+    #for j in range(3):
+    #    ax2.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.jet(plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))))
 
-    # p, bc and be are probability density, bin count and bin edges respectively
-    p, be = np.histogram(distribution, bins=100, normed=True)	
-    bc = (be[:-1]+be[1:])/2.
-    ax2.loglog(bc,p)
-
-def step_length_hist(n, fils):
-    data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
-
-    # data = [particle ID, (x,y), time] 
-    step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
-    drift= step.mean(axis=0)
-    step = step - drift
-    step_size = (step**2).sum(axis=1)**.5
-
-    #distribution = np.abs(step_size.flatten())
-
-    #step_size_mean = ((step_size**2).sum(axis=1).mean())**.5		# normalisation
-    distribution = np.abs(step_size.flatten())#/step_size_mean
-
-    # p, bc and be are probability density, bin count and bin edges respectively
-    p, be = np.histogram(distribution, bins=100, normed=True)	
-    bc = (be[:-1]+be[1:])/2.
-
-    powerlaw    = lambda x, amp, index: amp*(x**index)
-    exponential = lambda x, amp, index: amp*(index**x)
+    for j in range(3):
+        #ax3.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.jet(plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))))
     
-    def gumbel(x,beta,mu):
-        z = (x-mu)/beta
-        g = 1./beta * np.exp(-(z+np.exp(-z)))
-        return g
+        threshold = 0.3
+        mask = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)
+        ax1.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.gray_r(mask))
 
-    #long_time = 30
-    #popt, pcov   = curve_fit(powerlaw,    bc[long_time:], p[long_time:])
-    #popt2, pcov2 = curve_fit(exponential, bc[20:], p[20:])
-    popt, pcov    = curve_fit(gumbel, bc, p)
-    print(*popt)
+        threshold = 0.5
+        mask = (plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))>threshold).astype(float)
+        ax2.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.gray_r(mask))
 
-    ax1.semilogy(bc, p)
-    ax1.semilogy(bc, gumbel(bc, *popt),'--', c='k')    
-    ax1.set_ylim([10**-4, 10])
+    return
 
-    #distribution = np.abs(step_size.flatten())#/step_size_mean
-
-    # p, bc and be are probability density, bin count and bin edges respectively
-    #p, be = np.histogram(distribution, bins=100, normed=True)	
-    #bc = (be[:-1]+be[1:])/2.
-    #ax1.loglog(bc, p)
-
-    #step_size = (step2**2).sum(axis=1)**.5
-    #p, be = np.histogram(np.abs(step_size.flatten()), bins=100, normed=True)	
-    #bc = (be[:-1]+be[1:])/2.
-
-    #ax1.loglog(bc[20:], powerlaw(bc[20:], *popt), c='k')
-
-    #ax2.semilogy(bc, p)
-    #ax2.semilogy(bc[10:], exponential(bc[10:], *popt2), c='k')
-
-    #ax1.set_ylabel('prob. density')
-    #ax1.set_xlabel('step length')
-
-    #ax2.set_ylabel('prob. density')
-    #ax2.set_xlabel('step length')
-    #plt.xlim([0.08,1.5])
-
-# This is a waste of time as Guglielmo rightly pointed out
-def two_time_corr(ax,n, fils):
+def traj2(fils,n=1,sigma=50):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
     # data = [particle ID, (x,y), time] 
     step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
-    drift= step.mean(axis=0)
-    step = step - drift
     step_size = (step**2).sum(axis=1)**.5
 
-    x = step_size[:10,:-1].flatten()		# correlation between two groups of time steps
-    y = step_size[:10,1:].flatten()
-    ax.scatter(x,y,s=1) 
+    d = step/step_size[:,np.newaxis,:]		# unit vector of velocity
+    p = (d[:,:,n:]*d[:,:,:-n]).sum(axis=1)	# vel correlation between n steps
 
-f, (ax1) = plt.subplots(1,1)
-#axes = (ax1,ax2,ax3)
+    #j = 1
+
+    threshold = 0.4
+    #mask1 = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
+    #ax1.plot(mask1)
+
+    #threshold = 0.6
+    #mask2 = (plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))>threshold).astype(float)
+    #ax2.plot(mask2)
+
+    running = []
+    diffusing = []
+
+    for j in range(1250):     
+        mask = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
+
+        # if filament starts diffusive & ends diffusive
+        if mask[0] == 0 and mask[-1] == 0:
+            true_to_false = np.diff(mask)
+            stream_enter = np.where(true_to_false == 1)[0]
+            stream_exit  = np.where(true_to_false ==-1)[0]
+
+            # streaming
+            lags = stream_exit - stream_enter
+            for ll in lags:
+                running.append(ll)
+
+            # diffusing
+            lags = stream_enter[1:] - stream_exit[:-1]
+            for ll in lags:
+                diffusing.append(ll)
+
+        # if filament starts streaming & ends diffusive
+        if mask[0] == 1 and mask[-1] == 0:
+            true_to_false = np.diff(mask)
+            stream_enter = np.where(true_to_false == 1)[0]
+            stream_exit  = np.where(true_to_false ==-1)[0]
+
+            # streaming
+            lags = stream_exit - stream_enter
+            for ll in lags:
+                running.append(ll)
+
+            # diffusing
+            lags = stream_exit - stream_enter
+            for ll in lags:
+                diffusing.append(ll)
+
+
+
+    
+    p, be = np.histogram(running, bins=100)
+    bc = (be[:-1]+be[1:])/2.
+    ax1.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+
+
+    p, be = np.histogram(diffusing, bins=100)
+    bc = (be[:-1]+be[1:])/2.
+
+    ax2.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+    plt.legend()
+
+    #p, be = np.histogram(diffusing, bins=50)
+    #bc = (be[:-1]+be[1:])/2.
+
+    #plt.plot(bc,p)
+    
+
+    #plt.hist(diffusing,bins=50)    
+    #plt.hist(running,bins=50)    
+ 
+    '''
+    # test if vel corr and step length correspond for threshold pair
+   
+    a = np.zeros((3,121))
+    ct=0
+    for ti in np.linspace(0,1,11):
+        for tj in np.linspace(0,1,11):
+            mask_step = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>ti).astype(float)[1:]
+            mask_velc = (plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))>tj).astype(float)
+            a[0,ct] = ti
+            a[1,ct] = tj
+            a[2,ct] = np.sum(mask_step*mask_velc)
+            ct = ct+1
+
+    print(np.max(a[2,:]))
+    print(np.min(a[2,:]))
+
+    plt.scatter(a[0,:], a[1,:], c=a[2,:], cmap="cool")
+    '''
+
+    return
+
+f, (ax1,ax2) = plt.subplots(1,2)
+#ax1.set_aspect('equal')
+#ax2.set_aspect('equal')
 def main():
-
     # Loading any data in the 
     # phase space from the appropriate folder
     fname="out_fil.h5"
@@ -190,15 +189,11 @@ def main():
     # all functions here, iterate parameter set by set
     for folder in folders:
         fils, sim = read_data(folder, fname)
-        #vis(fils) 		# visualise traj
-        for n in [1,10,100]:
-            step_length_hist(n,fils)        
-            #two_time_corr(ax,n,fils)	# step length histogram (PD)
-            #sacf(n,fils)
-    #plt.show() 
-    plt.savefig('gumbel_lag_1_10_100.pdf')
-    #plt.savefig('timesteps1_10_100.pdf')
-    #plt.savefig('step_length_loglog_semilog2.pdf')
+    
+        for s in [50, 100, 200]:
+             traj2(fils,sigma=s)        
+
+    plt.show()
     return
     
 if __name__ == '__main__':

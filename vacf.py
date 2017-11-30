@@ -51,13 +51,13 @@ def vacf(fname):
 
         plt.loglog(x,y)
 
-        fitfunc = lambda x, a1, i1, s1, a2, i2, s2: a1*(x**i1) + a2*(i2**-x)
+        #fitfunc = lambda x, a1, i1, s1, a2, i2, s2: a1*(x**i1) + a2*(i2**-x)
 
-        x = np.array(x)
-        popt, pcov = curve_fit(fitfunc, x, y)
+        #x = np.array(x)
+        #popt, pcov = curve_fit(fitfunc, x, y)
 
-        print(*popt)
-        plt.loglog(x, fitfunc(x, *popt),c='k')
+        #print(*popt)
+        #plt.loglog(x, fitfunc(x, *popt),c='k')
         
 
         #if fi==0:
