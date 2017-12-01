@@ -32,10 +32,10 @@ def lag_times_hist(sigma, threshold, p):
     plt.legend(loc='best')
     plt.grid(1)
 
-def traj(fils,n=1):
+def traj(fils,n=1,t=0.5,sigma=50):
 
-    sigma = 50
-    threshold = 0.5
+    sigma = sigma
+    threshold = t
 
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
@@ -55,31 +55,32 @@ def traj(fils,n=1):
     #    ax2.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.jet(plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))))
 
     for j in range(3):
-        #ax3.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.jet(plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))))
-    
-        threshold = 0.3
+        ax2.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.jet(plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))))
+        #ax2.scatter(data[j][0],data[j][1],s=.5)
+
+        #threshold = 0.3
         mask = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)
         ax1.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.gray_r(mask))
 
-        threshold = 0.5
-        mask = (plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))>threshold).astype(float)
-        ax2.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.gray_r(mask))
+        #threshold = 0.5
+        #mask = (plt.Normalize()(gaussian_filter1d(p[j],sigma=sigma))>threshold).astype(float)
+        #ax2.scatter(data[j][0],data[j][1],s=.5,c=plt.cm.gray_r(mask))
 
     return
 
-def traj_distance(fils,n=1,sigma=50):
+def traj_distance(fils,n=1,t=0.4,sigma=50):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
     # data = [particle ID, (x,y), time] 
     step = data[:,:,n:] - data[:,:,:-n]		# step size dt = n
     step_size = (step**2).sum(axis=1)**.5
 
-    d = step/step_size[:,np.newaxis,:]		# unit vector of velocity
-    p = (d[:,:,n:]*d[:,:,:-n]).sum(axis=1)	# vel correlation between n steps
+    #d = step/step_size[:,np.newaxis,:]		# unit vector of velocity
+    #p = (d[:,:,n:]*d[:,:,:-n]).sum(axis=1)	# vel correlation between n steps
 
     #j = 1
 
-    threshold = 0.4
+    threshold = t
     #mask1 = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
     #ax1.plot(mask1)
 
@@ -164,21 +165,21 @@ def traj_distance(fils,n=1,sigma=50):
     
     p, be = np.histogram(running, bins=100)
     bc = (be[:-1]+be[1:])/2.
-    ax1.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
-    ax1.set_xlabel('distance covered streaming')
+    ax3.semilogy(bc,p,'o',label=str('thresh='+str(t)))
+    ax3.set_xlabel('distance covered streaming')
 
 
     p, be = np.histogram(diffusing, bins=100)
     bc = (be[:-1]+be[1:])/2.
 
-    ax2.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
-    ax2.set_xlabel('distance covered in bundle')
+    ax4.semilogy(bc,p,'o',label=str('thresh='+str(t)))
+    ax4.set_xlabel('distance covered in bundle')
     plt.legend()
 
     
     return
 
-def traj_time(fils,n=1,sigma=50):
+def traj_time(fils,n=1,t=0.1,sigma=30):
     data = fils.xi.transpose(2,1,0) 		# Adopt Guglielmo's convention here to avoid confusion
 
     # data = [particle ID, (x,y), time] 
@@ -190,7 +191,7 @@ def traj_time(fils,n=1,sigma=50):
 
     #j = 1
 
-    threshold = 0.4
+    threshold = t
     #mask1 = (plt.Normalize()(gaussian_filter1d(step_size[j],sigma=sigma))>threshold).astype(float)[1:]
     #ax1.plot(mask1)
 
@@ -259,15 +260,15 @@ def traj_time(fils,n=1,sigma=50):
     
     p, be = np.histogram(running, bins=100)
     bc = (be[:-1]+be[1:])/2.
-    ax1.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
-    ax1.set_xlabel('time spent streaming')
+    ax5.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+    ax5.set_xlabel('time spent streaming')
 
 
     p, be = np.histogram(diffusing, bins=100)
     bc = (be[:-1]+be[1:])/2.
 
-    ax2.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
-    ax2.set_xlabel('time spent in bundle')
+    ax6.semilogy(bc,p,'o',label=str('sigma='+str(sigma)))
+    ax6.set_xlabel('time spent in bundle')
     plt.legend()
 
     #p, be = np.histogram(diffusing, bins=50)
@@ -301,9 +302,17 @@ def traj_time(fils,n=1,sigma=50):
 
     return
 
-f, (ax1,ax2) = plt.subplots(1,2)
-#ax1.set_aspect('equal')
-#ax2.set_aspect('equal')
+f, (ax1,ax2) = plt.subplots(1,2, figsize=(20,10))
+ax1.set_aspect('equal')
+ax2.set_aspect('equal')
+
+f2, ((ax3,ax4),(ax5,ax6)) = plt.subplots(2,2) #figsize=(20,10))
+
+ax3.set_xlim([0,200])
+ax4.set_xlim([0,200])
+
+ax5.set_xlim([0,8000])
+ax6.set_xlim([0,8000 ])
 def main():
     # Loading any data in the 
     # phase space from the appropriate folder
@@ -321,9 +330,12 @@ def main():
     for folder in folders:
         fils, sim = read_data(folder, fname)
     
-        for s in [50,100]:
-             traj_distance(fils,sigma=s)        
-
+        for t in [0.3]:
+             #traj_distance(fils,t=t)        
+             #traj_time(fils,t=t)
+             traj(fils,t=t,sigma=30)
+             traj_distance(fils,t=t, sigma=30)	
+             traj_time(fils,t=t, sigma=30)        
     plt.show()
     return
     
